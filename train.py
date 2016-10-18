@@ -17,13 +17,14 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader, optimizer_factory
+from wavenet import WaveNetModel, DirectoryAudioReader, optimizer_factory
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
 NUM_STEPS = int(1e5)
+NUM_VAL_STEPS = 10
 LEARNING_RATE = 1e-3
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -64,6 +65,8 @@ def get_arguments():
                         help='How many steps to save each checkpoint after')
     parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
                         help='Number of training steps.')
+    parser.add_argument('--num_val_steps', type=int, default=NUM_VAL_STEPS,
+                        help='Number of validation steps.')
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
                         help='Learning rate for training.')
     parser.add_argument('--wavenet_params', type=str, default=WAVENET_PARAMS,
@@ -189,18 +192,14 @@ def main():
     with open(args.wavenet_params, 'r') as f:
         wavenet_params = json.load(f)
 
-    # Create coordinator.
-    coord = tf.train.Coordinator()
-
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
         # Allow silence trimming to be skipped by specifying a threshold near
         # zero.
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
-        reader = AudioReader(
+        reader = DirectoryAudioReader(
             args.data_dir,
-            coord,
             sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
             silence_threshold=args.silence_threshold)
@@ -232,6 +231,9 @@ def main():
     writer.add_graph(tf.get_default_graph())
     run_metadata = tf.RunMetadata()
     summaries = tf.merge_all_summaries()
+    
+    # Setup validation
+    val_loss = net.loss(audio_batch, None)
 
     # Set up session
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
@@ -254,7 +256,6 @@ def main():
               "the previous model.")
         raise
 
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     reader.start_threads(sess)
 
     try:
@@ -267,7 +268,8 @@ def main():
                 run_options = tf.RunOptions(
                     trace_level=tf.RunOptions.FULL_TRACE)
                 summary, loss_value, _ = sess.run(
-                    [summaries, loss, optim],
+                    [summaries, loss, optim], 
+                    {reader.train_flag: True},
                     options=run_options,
                     run_metadata=run_metadata)
                 writer.add_summary(summary, step)
@@ -278,13 +280,22 @@ def main():
                 with open(timeline_path, 'w') as f:
                     f.write(tl.generate_chrome_trace_format(show_memory=True))
             else:
-                summary, loss_value, _ = sess.run([summaries, loss, optim])
+                summary, loss_value, _ = sess.run([summaries, loss, optim],
+                    {reader.train_flag: True})
                 writer.add_summary(summary, step)
 
             duration = time.time() - start_time
             print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, duration))
-
+            # validation
+            if args.num_val_steps > 0:
+                val_loss_value = 0
+                for val_step in range(args.num_val_steps):
+                    val_loss_value += sess.run(val_loss, {reader.train_flag: False})
+                duration = time.time() - start_time    
+                print('step {:d} - valdation loss = {:.3f}, ({:.3f} sec/step)'
+                      .format(step, val_loss_value/args.num_val_steps, duration))                
+            
             if step % args.checkpoint_every == 0:
                 save(saver, sess, logdir, step)
                 last_saved_step = step
@@ -296,8 +307,7 @@ def main():
     finally:
         if step > last_saved_step:
             save(saver, sess, logdir, step)
-        coord.request_stop()
-        coord.join(threads)
+        reader.stop_threads(sess)
 
 
 if __name__ == '__main__':
