@@ -23,8 +23,8 @@ def load_generic_prices(directory):
     '''
     files = find_files(directory)
     for filename in files:
-        prices, _ = pd.read_pickle(filename)
-        prices = prices.reshape(-1, 1)
+        prices = pd.read_pickle(filename)
+        prices = prices.values.reshape(-1, 1)
         yield prices, filename
 
 
