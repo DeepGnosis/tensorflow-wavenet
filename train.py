@@ -292,7 +292,8 @@ def main():
             duration = time.time() - start_time
             print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, duration))
-            print('Shape: {} Losses: {}'.format(net._loss.shape, net._loss))
+            _loss = sess.run(net._loss)
+            print('Shape: {} Losses: {}'.format(_loss.shape, _loss))
 
             if step % args.checkpoint_every == 0:
                 save(saver, sess, logdir, step)
