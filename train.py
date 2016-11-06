@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
-from wavenet import WaveNetModel, AudioReader, optimizer_factory
+from wavenet import WaveNetModel, optimizer_factory
 from wavenet.price_reader import PriceReader
 
 BATCH_SIZE = 1
