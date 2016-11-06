@@ -76,7 +76,7 @@ class PriceReader(object):
                     buffer_ = np.append(buffer_, audio)
                     while len(buffer_) > self.sample_size:
                         piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
-                        print("Piece shape: {}".format(piece.shape))
+                        # print("Piece shape: {}".format(piece.shape))
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})
                         buffer_ = buffer_[self.sample_size:]
