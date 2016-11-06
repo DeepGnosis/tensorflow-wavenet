@@ -490,17 +490,17 @@ class WaveNetModel(object):
                 shifted = tf.slice(encoded, [0, 1, 0],
                                    [-1, tf.shape(encoded)[1] - 1, -1])
                 shifted = tf.pad(shifted, [[0, 0], [0, 1], [0, 0]])
-                print("Shifted: {}".format(tf.shape(shifted)))
+                print("Shifted: {}".format(tf.eval(tf.shape(shifted))))
 
-                print("Raw output: {}".format(tf.shape(raw_output)))
+                print("Raw output: {}".format(tf.eval(tf.shape(raw_output))))
                 prediction = tf.reshape(raw_output,
                                         [-1, self.quantization_channels])
-                print("Prediction: {}".format(tf.shape(prediction)))
+                print("Prediction: {}".format(tf.eval(tf.shape(prediction))))
 
                 loss = tf.nn.softmax_cross_entropy_with_logits(
                     prediction,
                     tf.reshape(shifted, [-1, self.quantization_channels]))
-                print("Loss: {}".format(tf.shape(loss)))
+                print("Loss: {}".format(tf.eval(tf.shape(loss))))
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)
