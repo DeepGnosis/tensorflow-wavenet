@@ -67,6 +67,7 @@ class PriceReader(object):
         while not stop:
             iterator = load_generic_prices(self.price_dir)
             for audio, filename in iterator:
+                print("Input shape: {}".format(audio.shape))
                 if self.coord.should_stop():
                     stop = True
                     break
@@ -75,6 +76,7 @@ class PriceReader(object):
                     buffer_ = np.append(buffer_, audio)
                     while len(buffer_) > self.sample_size:
                         piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
+                        print("Piece shape: {}".format(piece.shape))
                         sess.run(self.enqueue,
                                  feed_dict={self.sample_placeholder: piece})
                         buffer_ = buffer_[self.sample_size:]
