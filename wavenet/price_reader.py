@@ -23,6 +23,7 @@ def load_generic_prices(directory, data_set="train"):
     '''
     files = find_files(directory, pattern="*"+data_set+".pickle")
     for filename in files:
+        print(filename)
         prices = pd.read_pickle(filename)
         prices = prices.values.reshape(-1, 1)
         yield prices, filename
