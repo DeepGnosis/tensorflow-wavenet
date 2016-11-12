@@ -473,7 +473,7 @@ class WaveNetModel(object):
             # We mu-law encode and quantize the input audioform.
             input_batch = mu_law_encode(input_batch,
                                         self.quantization_channels)
-
+            print(tf.shape(input_batch))
             encoded = self._one_hot(input_batch)
             if self.scalar_input:
                 network_input = tf.reshape(
@@ -498,7 +498,7 @@ class WaveNetModel(object):
                     prediction,
                     tf.reshape(shifted, [-1, self.quantization_channels]))
                 reduced_loss = tf.reduce_mean(loss)
-                self._loss = loss
+                # self._loss = loss
 
                 tf.scalar_summary('loss', reduced_loss)
 
