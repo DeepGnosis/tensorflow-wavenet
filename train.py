@@ -286,8 +286,10 @@ def main():
                 print('Storing metadata')
                 run_options = tf.RunOptions(
                     trace_level=tf.RunOptions.FULL_TRACE)
-                summary, loss_value, val_loss_value, _ = sess.run(
-                    [summaries, loss, val_loss, optim],
+                # summary, loss_value, val_loss_value, _ = sess.run(
+                #     [summaries, loss, val_loss, optim],
+                summary, loss_value, _ = sess.run(
+                    [summaries, loss, optim],
                     options=run_options,
                     run_metadata=run_metadata)
                 writer.add_summary(summary, step)
@@ -298,8 +300,10 @@ def main():
                 with open(timeline_path, 'w') as f:
                     f.write(tl.generate_chrome_trace_format(show_memory=True))
             else:
-                summary, loss_value, val_loss_value, _ = sess.run(
-                    [summaries, loss, val_loss, optim])
+                # summary, loss_value, val_loss_value, _ = sess.run(
+                #     [summaries, loss, val_loss, optim])
+                summary, loss_value, _ = sess.run(
+                    [summaries, loss, optim])
                 writer.add_summary(summary, step)
 
             duration = time.time() - start_time
