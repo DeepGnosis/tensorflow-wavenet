@@ -279,6 +279,7 @@ def main():
     step = None
     try:
         last_saved_step = saved_global_step
+        print("Step: {}".format(last_saved_step))
         for step in range(saved_global_step + 1, args.num_steps):
             start_time = time.time()
             if args.store_metadata and step % 50 == 0:
