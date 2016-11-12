@@ -17,11 +17,11 @@ def find_files(directory, pattern='*.pickle'):
     return files
 
 
-def load_generic_prices(directory):
+def load_generic_prices(directory, data_set="train"):
     '''Generator that yields prices timeseries from the directory.
     Currently works with 1-dim prices only.
     '''
-    files = find_files(directory)
+    files = find_files(directory, pattern="*"+data_set+".pickle")
     for filename in files:
         prices = pd.read_pickle(filename)
         prices = prices.values.reshape(-1, 1)
@@ -38,11 +38,13 @@ class PriceReader(object):
                  # sample_rate,
                  sample_size=None,
                  silence_threshold=None,
-                 queue_size=256):
+                 queue_size=256,
+                 data_set="train"):
         self.price_dir = price_dir
         # self.sample_rate = sample_rate
         self.coord = coord
         self.sample_size = sample_size
+        self.data_set = data_set
         self.threads = []
         self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
         self.queue = tf.PaddingFIFOQueue(queue_size,
@@ -65,7 +67,7 @@ class PriceReader(object):
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_generic_prices(self.price_dir)
+            iterator = load_generic_prices(self.price_dir, self.data_set)
             for audio, filename in iterator:
                 print("Input shape: {}".format(audio.shape))
                 if self.coord.should_stop():

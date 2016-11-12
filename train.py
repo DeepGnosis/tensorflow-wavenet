@@ -29,6 +29,7 @@ LEARNING_RATE = 1e-3
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 SAMPLE_SIZE = 100000
+VAL_SIZE =  3329
 L2_REGULARIZATION_STRENGTH = 0
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
@@ -71,6 +72,9 @@ def get_arguments():
                         help='JSON file with the network parameters.')
     parser.add_argument('--sample_size', type=int, default=SAMPLE_SIZE,
                         help='Concatenate and cut audio samples to this many '
+                        'samples.')
+    parser.add_argument('--val_size', type=int, default=VAL_SIZE,
+                        help='Concatenate and cut validation audio samples to this many '
                         'samples.')
     parser.add_argument('--l2_regularization_strength', type=float,
                         default=L2_REGULARIZATION_STRENGTH,
@@ -213,6 +217,13 @@ def main():
             sample_size=args.sample_size)
         audio_batch = reader.dequeue(args.batch_size)
 
+        reader_val = PriceReader(
+            args.data_dir,
+            coord,
+            sample_size=args.sample_size,
+            data_set="val")
+        val_batch = reader_val.dequeue(args.batch_size)
+
     # Create network.
     net = WaveNetModel(
         batch_size=args.batch_size,
@@ -228,6 +239,7 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)
+    val_loss= net.loss(val_batch, args.l2_regularization_strength)
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)
@@ -274,8 +286,8 @@ def main():
                 print('Storing metadata')
                 run_options = tf.RunOptions(
                     trace_level=tf.RunOptions.FULL_TRACE)
-                summary, loss_value, _ = sess.run(
-                    [summaries, loss, optim],
+                summary, loss_value, val_loss_value, _ = sess.run(
+                    [summaries, loss, val_loss, optim],
                     options=run_options,
                     run_metadata=run_metadata)
                 writer.add_summary(summary, step)
@@ -286,14 +298,15 @@ def main():
                 with open(timeline_path, 'w') as f:
                     f.write(tl.generate_chrome_trace_format(show_memory=True))
             else:
-                summary, loss_value, _ = sess.run([summaries, loss, optim])
+                summary, loss_value, val_loss_value, _ = sess.run(
+                    [summaries, loss, val_loss, optim])
                 writer.add_summary(summary, step)
 
             duration = time.time() - start_time
-            print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
-                  .format(step, loss_value, duration))
-            _loss = sess.run(net._loss)
-            print('Shape: {} Losses: {}'.format(_loss.shape, _loss))
+            print('step {:d} - loss = {:.3f} - val_loss = {:.3f}, ({:.3f} sec/step)'
+                  .format(step, loss_value, val_loss, duration))
+            # _loss = sess.run(net._loss)
+            # print('Shape: {} Losses: {}'.format(_loss.shape, _loss))
 
             if step % args.checkpoint_every == 0:
                 save(saver, sess, logdir, step)
