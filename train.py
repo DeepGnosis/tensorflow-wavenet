@@ -220,7 +220,7 @@ def main():
         reader_val = PriceReader(
             args.data_dir,
             coord,
-            sample_size=args.sample_size,
+            sample_size=args.val_size,
             data_set="val")
         val_batch = reader_val.dequeue(args.batch_size)
 
