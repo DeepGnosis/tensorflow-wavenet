@@ -222,7 +222,7 @@ def main():
             coord,
             sample_size=args.val_size,
             data_set="val")
-        # val_batch = reader_val.dequeue(args.batch_size)
+        val_batch = reader_val.dequeue(args.batch_size)
 
     # Create network.
     net = WaveNetModel(
@@ -308,7 +308,7 @@ def main():
                 writer.add_summary(summary, step)
 
             print("Run validation...")
-            val_loss = sess.run(val_loss)
+            # val_loss = sess.run(val_loss)
             duration = time.time() - start_time
             print('step {:d} - loss = {:.3f} - val_loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, val_loss, duration))
