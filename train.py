@@ -239,7 +239,7 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)
-    val_loss = net.loss(val_batch, args.l2_regularization_strength)
+    val_loss = net.loss(val_batch, None)
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)
