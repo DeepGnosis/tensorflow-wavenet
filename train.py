@@ -286,10 +286,10 @@ def main():
                 print('Storing metadata')
                 run_options = tf.RunOptions(
                     trace_level=tf.RunOptions.FULL_TRACE)
-                summary, loss_value, val_loss_value, _ = sess.run(
-                    [summaries, loss, val_loss, optim],
-                # summary, loss_value, _ = sess.run(
-                #     [summaries, loss, optim],
+                # summary, loss_value, val_loss_value, _ = sess.run(
+                #     [summaries, loss, val_loss, optim],
+                summary, loss_value, _ = sess.run(
+                    [summaries, loss, optim],
                     options=run_options,
                     run_metadata=run_metadata)
                 writer.add_summary(summary, step)
@@ -300,16 +300,18 @@ def main():
                 with open(timeline_path, 'w') as f:
                     f.write(tl.generate_chrome_trace_format(show_memory=True))
             else:
-                summary, loss_value, val_loss_value, _ = sess.run(
-                    [summaries, loss, val_loss, optim])
-                # summary, loss_value, _ = sess.run(
-                #     [summaries, loss, optim])
+                # summary, loss_value, val_loss_value, _ = sess.run(
+                #     [summaries, loss, val_loss, optim])
+                summary, loss_value, _ = sess.run(
+                    [summaries, loss, optim])
                 writer.add_summary(summary, step)
 
+            print("Run validation...")
+            val_loss = sess.run(val_loss)
             duration = time.time() - start_time
             print('step {:d} - loss = {:.3f} - val_loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, val_loss, duration))
-            # _loss = sess.run(net._loss)
+
             # print('Shape: {} Losses: {}'.format(_loss.shape, _loss))
 
             if step % args.checkpoint_every == 0:
