@@ -222,7 +222,7 @@ def main():
             coord,
             sample_size=args.val_size,
             data_set="val")
-        val_batch = reader_val.dequeue(args.batch_size)
+        # val_batch = reader_val.dequeue(args.batch_size)
 
     # Create network.
     net = WaveNetModel(
