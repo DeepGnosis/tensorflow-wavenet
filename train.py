@@ -239,7 +239,7 @@ def main():
     if args.l2_regularization_strength == 0:
         args.l2_regularization_strength = None
     loss = net.loss(audio_batch, args.l2_regularization_strength)
-    val_loss = net.loss(val_batch, None)
+    # val_loss = net.loss(val_batch, None)
     optimizer = optimizer_factory[args.optimizer](
                     learning_rate=args.learning_rate,
                     momentum=args.momentum)
@@ -310,8 +310,10 @@ def main():
             print("Run validation...")
             # val_loss = sess.run(val_loss)
             duration = time.time() - start_time
-            print('step {:d} - loss = {:.3f} - val_loss = {:.3f}, ({:.3f} sec/step)'
-                  .format(step, loss_value, val_loss, duration))
+            # print('step {:d} - loss = {:.3f} - val_loss = {:.3f}, ({:.3f} sec/step)'
+            #       .format(step, loss_value, val_loss, duration))
+            print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
+                  .format(step, loss_value, duration))
 
             # print('Shape: {} Losses: {}'.format(_loss.shape, _loss))
 
