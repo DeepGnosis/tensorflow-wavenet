@@ -197,6 +197,9 @@ def main():
     with open(args.wavenet_params, 'r') as f:
         wavenet_params = json.load(f)
 
+    # Create coordinator.
+    coord = tf.train.Coordinator()
+
     # Load raw waveform from VCTK corpus.
     with tf.name_scope('create_inputs'):
         # Allow silence trimming to be skipped by specifying a threshold near
@@ -206,7 +209,8 @@ def main():
         reader = DirectoryPriceReader(
             args.data_dir,
             sample_size=args.sample_size,
-            val_sample_size=args.val_size)
+            val_sample_size=args.val_size,
+            coord=coord)
         audio_batch = reader.dequeue(args.batch_size)
 
     # Create network.
@@ -260,6 +264,7 @@ def main():
               "the previous model.")
         raise
 
+    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     reader.start_threads(sess)
 
     try:
@@ -310,9 +315,13 @@ def main():
         # is on its own line.
         print()
     finally:
+        # if step > last_saved_step:
+        #     save(saver, sess, logdir, step)
+        # reader.stop_threads(sess)
         if step > last_saved_step:
             save(saver, sess, logdir, step)
-        reader.stop_threads(sess)
+        coord.request_stop()
+        coord.join(threads)
 
 
 if __name__ == '__main__':
