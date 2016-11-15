@@ -2,6 +2,8 @@ import fnmatch
 import os
 import re
 import threading
+import random
+from abc import ABCMeta, abstractmethod
 
 import librosa
 import numpy as np
@@ -17,9 +19,8 @@ def find_files(directory, pattern='*.wav'):
     return files
 
 
-def load_generic_audio(directory, sample_rate):
-    '''Generator that yields audio waveforms from the directory.'''
-    files = find_files(directory)
+def load_generic_audio(files, sample_rate):
+    '''Generator that yields audio waveforms from the files.'''
     for filename in files:
         audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
@@ -47,30 +48,36 @@ def trim_silence(audio, threshold):
 
     # Note: indices can be an empty array, if the whole audio was silence.
     return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
-
-
+            
 class AudioReader(object):
     '''Generic background audio reader that preprocesses audio files
     and enqueues them into a TensorFlow queue.'''
-
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def get_audio_iterator(self, train):
+        yield None, ''
+    
     def __init__(self,
-                 audio_dir,
-                 coord,
-                 sample_rate,
-                 sample_size=None,
-                 silence_threshold=None,
+                 validation=True,
                  queue_size=256):
-        self.audio_dir = audio_dir
-        self.sample_rate = sample_rate
-        self.coord = coord
-        self.sample_size = sample_size
-        self.silence_threshold = silence_threshold
+        self.coord = tf.train.Coordinator()
+        self.validation = validation
         self.threads = []
-        self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
-        self.queue = tf.PaddingFIFOQueue(queue_size,
-                                         ['float32'],
-                                         shapes=[(None, 1)])
-        self.enqueue = self.queue.enqueue([self.sample_placeholder])
+        # 0 is train, 1 is validation
+        num_of_queues = 2 if self.validation else 1
+        self.reset_locks = [[None]*2]*num_of_queues # 0 is start lock, 1 is end lock
+        self.placeholder = [None]*num_of_queues
+        self.queue = [None]*num_of_queues
+        self.enqueue = [None]*num_of_queues
+        for i in range(num_of_queues):
+            self.placeholder[i] = tf.placeholder(dtype=tf.float32, shape=None, 
+                name=('train_samples' if i==0 else 'validation_samples'))
+            self.queue[i] = tf.PaddingFIFOQueue(queue_size,
+                                             ['float32'],
+                                             shapes=[(None, 1)])
+            self.enqueue[i] = self.queue[i].enqueue([self.placeholder[i]])
+        self.train_flag = tf.placeholder(tf.bool) if self.validation else None
 
         # TODO Find a better way to check this.
         # Checking inside the AudioReader's thread makes it hard to terminate
@@ -79,44 +86,114 @@ class AudioReader(object):
             raise ValueError("No audio files found in '{}'.".format(audio_dir))
 
     def dequeue(self, num_elements):
-        output = self.queue.dequeue_many(num_elements)
+        if self.validation:
+            q = tf.QueueBase.from_list(tf.cond(self.train_flag, 
+                lambda: tf.constant(0), lambda: tf.constant(1)), 
+                [self.queue[0], self.queue[1]])
+            output = q.dequeue_many(num_elements)
+        else:
+            output = self.queue[0].dequeue_many(num_elements)
         return output
 
-    def thread_main(self, sess):
-        buffer_ = np.array([])
+    def thread_main(self, sess, train):
+        queue_index = 0 if train else 1
         stop = False
         # Go through the dataset multiple times
         while not stop:
-            iterator = load_generic_audio(self.audio_dir, self.sample_rate)
+            iterator = self.get_audio_iterator(train)
             for audio, filename in iterator:
                 if self.coord.should_stop():
                     stop = True
                     break
-                if self.silence_threshold is not None:
-                    # Remove silence
-                    audio = trim_silence(audio[:, 0], self.silence_threshold)
-                    if audio.size == 0:
-                        print("Warning: {} was ignored as it contains only "
-                              "silence. Consider decreasing trim_silence "
-                              "threshold, or adjust volume of the audio."
-                              .format(filename))
-
-                if self.sample_size:
-                    # Cut samples into fixed size pieces
-                    buffer_ = np.append(buffer_, audio)
-                    while len(buffer_) > self.sample_size:
-                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
-                        sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                        buffer_ = buffer_[self.sample_size:]
-                else:
-                    sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
+                try:
+                    sess.run(self.enqueue[queue_index],
+                             feed_dict={self.placeholder[queue_index]: audio})
+                except tf.errors.CancelledError:
+                    stop = True
+                    break
+                if self.reset_locks[queue_index][0] is not None:
+                    self.reset_locks[queue_index][0].set() # unlock and allow reset_queue to start draining
+                    self.reset_locks[queue_index][1].wait() # wait for draining to complete before continue this thread
+                    self.reset_locks[queue_index] = [None, None] # reset locks
+                    break           
 
     def start_threads(self, sess, n_threads=1):
-        for _ in range(n_threads):
-            thread = threading.Thread(target=self.thread_main, args=(sess,))
-            thread.daemon = True  # Thread will close when parent quits.
+        for i in range(n_threads):
+            thread = threading.Thread(target=self.thread_main, 
+                name='Train-'+str(i), args=(sess, True))
             thread.start()
             self.threads.append(thread)
+        if self.validation:
+            thread = threading.Thread(target=self.thread_main, 
+                name='Validation', args=(sess, False))
+            thread.start()
+            self.threads.append(thread)            
         return self.threads
+
+    def stop_threads(self, sess):
+        for q in self.queue:
+            sess.run([q.close(cancel_pending_enqueues=True)])
+        self.coord.request_stop()
+        self.coord.join(self.threads)  
+        
+    def reset_queue(self, sess, train): # Note this won't work for single queue/multiple threads
+        queue_index = 0 if train else 1
+        self.reset_locks[queue_index] = [threading.Event(), threading.Event()]
+        self.reset_locks[queue_index][0].wait() # wait for queue thread to signal the start of drain
+        drain = self.drain_queue(sess, self.queue[queue_index])
+        self.reset_locks[queue_index][1].set() # signal the end of draining so that queue thread can continue
+        return drain
+    
+    def drain_queue(self, sess, queue): # do not run this on queue thread, otherwise strange error may appear
+        num_remaining = sess.run([queue.size()])
+        if num_remaining == 0:
+            return None
+        return sess.run([queue.dequeue_many(num_remaining)])
+            
+class DirectoryAudioReader(AudioReader):
+    def __init__(self,
+                 audio_dir,
+                 sample_rate,
+                 sample_size=None,
+                 silence_threshold=None,
+                 validation=True,
+                 validation_split=0.1,
+                 queue_size=256): 
+        super(DirectoryAudioReader, self).__init__(validation, queue_size)
+        self.audio_dir = audio_dir
+        self.sample_rate = sample_rate
+        self.sample_size = sample_size
+        self.silence_threshold = silence_threshold
+        if validation: # split files
+            files = find_files(audio_dir)
+            random.shuffle(files)
+            split = int(len(files)*(1 - validation_split))
+            self.train_files = files[:split]
+            self.validation_files = files[split:]
+        else:
+            self.train_files = find_files(audio_dir)
+            self.validation_files = None
+        
+    def get_audio_iterator(self, train):
+        buffer_ = np.array([])
+        files = self.train_files if train else self.validation_files
+        iterator = load_generic_audio(files, self.sample_rate)
+        for audio, filename in iterator:
+            if self.silence_threshold is not None:
+                # Remove silence
+                audio = trim_silence(audio[:, 0], self.silence_threshold)
+                if audio.size == 0:
+                    print("Warning: {} was ignored as it contains only "
+                          "silence. Consider decreasing trim_silence "
+                          "threshold, or adjust volume of the audio."
+                          .format(filename))
+
+            if self.sample_size:
+                # Cut samples into fixed size pieces
+                buffer_ = np.append(buffer_, audio)
+                while len(buffer_) > self.sample_size:
+                    piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
+                    yield piece, filename
+                    buffer_ = buffer_[self.sample_size:]
+            else:
+                yield audio, filename
