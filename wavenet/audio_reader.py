@@ -106,8 +106,9 @@ class AudioReader(object):
     def thread_main(self, sess, train):
         queue_index = 0 if train else 1
         stop = False
+        c = 0
         # Go through the dataset multiple times
-        while not stop:
+        while c < 100: #not stop:
             iterator = self.get_audio_iterator(train)
             for audio, filename in iterator:
                 if self.coord.should_stop():
@@ -126,7 +127,7 @@ class AudioReader(object):
                     self.reset_locks[queue_index][1].wait() # wait for draining to complete before continue this thread
                     self.reset_locks[queue_index] = [None, None] # reset locks
                     break
-            stop = True
+            c += 1
 
     def start_threads(self, sess, n_threads=1):
         for i in range(n_threads):
