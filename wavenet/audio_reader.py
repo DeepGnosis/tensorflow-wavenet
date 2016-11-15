@@ -109,7 +109,8 @@ class AudioReader(object):
         stop = False
         c = 0
         # Go through the dataset multiple times
-        while c < 100: #not stop:
+        while not stop:
+            print(c)
             iterator = self.get_audio_iterator(train)
             for audio, filename in iterator:
                 if self.coord.should_stop():
