@@ -92,12 +92,6 @@ class AudioReader(object):
             self.enqueue[i] = self.queue[i].enqueue([self.placeholder[i]])
         self.train_flag = tf.placeholder(tf.bool) if self.validation else None
 
-        # TODO Find a better way to check this.
-        # Checking inside the AudioReader's thread makes it hard to terminate
-        # the execution of the script, so we do it in the constructor for now.
-        if not find_files(audio_dir):
-            raise ValueError("No audio files found in '{}'.".format(audio_dir))
-
     def dequeue(self, num_elements):
         if self.validation:
             q = tf.QueueBase.from_list(tf.cond(self.train_flag, 
