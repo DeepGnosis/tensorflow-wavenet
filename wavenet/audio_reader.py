@@ -72,8 +72,10 @@ class AudioReader(object):
     
     def __init__(self,
                  validation=True,
-                 queue_size=256):
-        self.coord = tf.train.Coordinator()
+                 queue_size=256,
+                 coord=None):
+        # self.coord = tf.train.Coordinator()
+        self.coord = coord
         self.validation = validation
         self.threads = []
         # 0 is train, 1 is validation
