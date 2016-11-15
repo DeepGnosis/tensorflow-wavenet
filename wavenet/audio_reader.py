@@ -114,12 +114,14 @@ class AudioReader(object):
                     stop = True
                     break
                 try:
+                    print("Enqueue: {}".format(queue_index))
                     sess.run(self.enqueue[queue_index],
                              feed_dict={self.placeholder[queue_index]: audio})
                 except tf.errors.CancelledError:
                     stop = True
                     break
                 if self.reset_locks[queue_index][0] is not None:
+                    print("Reset locks")
                     self.reset_locks[queue_index][0].set() # unlock and allow reset_queue to start draining
                     self.reset_locks[queue_index][1].wait() # wait for draining to complete before continue this thread
                     self.reset_locks[queue_index] = [None, None] # reset locks
