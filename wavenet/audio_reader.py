@@ -5,9 +5,10 @@ import threading
 import random
 from abc import ABCMeta, abstractmethod
 
-import librosa
+# import librosa
 import numpy as np
 import tensorflow as tf
+import pandas as pd
 
 
 def find_files(directory, pattern='*.wav'):
@@ -25,6 +26,18 @@ def load_generic_audio(files, sample_rate):
         audio, _ = librosa.load(filename, sr=sample_rate, mono=True)
         audio = audio.reshape(-1, 1)
         yield audio, filename
+
+
+def load_generic_prices(directory, data_set="train"):
+    '''Generator that yields prices timeseries from the directory.
+    Currently works with 1-dim prices only.
+    '''
+    files = find_files(directory, pattern="*"+data_set+".pickle")
+    for filename in files:
+        print(filename)
+        prices = pd.read_pickle(filename)
+        prices = prices.values.reshape(-1, 1)
+        yield prices, filename
 
 
 def load_vctk_audio(directory, sample_rate):
@@ -149,6 +162,7 @@ class AudioReader(object):
         if num_remaining == 0:
             return None
         return sess.run([queue.dequeue_many(num_remaining)])
+
             
 class DirectoryAudioReader(AudioReader):
     def __init__(self,
@@ -173,7 +187,7 @@ class DirectoryAudioReader(AudioReader):
         else:
             self.train_files = find_files(audio_dir)
             self.validation_files = None
-        
+
     def get_audio_iterator(self, train):
         buffer_ = np.array([])
         files = self.train_files if train else self.validation_files
@@ -195,5 +209,40 @@ class DirectoryAudioReader(AudioReader):
                     piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
                     yield piece, filename
                     buffer_ = buffer_[self.sample_size:]
+            else:
+                yield audio, filename
+
+
+class DirectoryPriceReader(AudioReader):
+    def __init__(self,
+                 audio_dir,
+                 sample_size=None,
+                 validation=True,
+                 val_sample_size=None,
+                 queue_size=256):
+        super(DirectoryPriceReader, self).__init__(validation, queue_size)
+        self.audio_dir = audio_dir
+        self.sample_size = sample_size
+        self.val_sample_size = val_sample_size
+        if validation: # split files
+            self.train_files = find_files(audio_dir, pattern="*train.pickle")
+            self.validation_files = find_files(audio_dir, pattern="*val.pickle")
+        else:
+            self.train_files = find_files(audio_dir, pattern="*.pickle")
+            self.validation_files = None
+
+    def get_audio_iterator(self, train):
+        buffer_ = np.array([])
+        files = self.train_files if train else self.validation_files
+        sample_size = self.sample_size if train else self.val_sample_size
+        iterator = load_generic_prices(files)
+        for audio, filename in iterator:
+            if sample_size:
+                # Cut samples into fixed size pieces
+                buffer_ = np.append(buffer_, audio)
+                while len(buffer_) > sample_size:
+                    piece = np.reshape(buffer_[:sample_size], [-1, 1])
+                    yield piece, filename
+                    buffer_ = buffer_[sample_size:]
             else:
                 yield audio, filename

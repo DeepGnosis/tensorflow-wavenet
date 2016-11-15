@@ -18,7 +18,7 @@ import tensorflow as tf
 from tensorflow.python.client import timeline
 
 from wavenet import WaveNetModel, optimizer_factory
-from wavenet.price_reader import PriceReader
+# from wavenet.price_reader import PriceReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
@@ -203,19 +203,11 @@ def main():
         # zero.
         silence_threshold = args.silence_threshold if args.silence_threshold > \
                                                       EPSILON else None
-        reader = DirectoryAudioReader(
+        reader = DirectoryPriceReader(
             args.data_dir,
-            sample_rate=wavenet_params['sample_rate'],
             sample_size=args.sample_size,
-            silence_threshold=args.silence_threshold)
+            val_sample_size=args.val_size)
         audio_batch = reader.dequeue(args.batch_size)
-
-        reader_val = PriceReader(
-            args.data_dir,
-            coord,
-            sample_size=args.val_size,
-            data_set="val")
-        val_batch = reader_val.dequeue(args.batch_size)
 
     # Create network.
     net = WaveNetModel(

@@ -6,6 +6,7 @@ import threading
 import numpy as np
 import tensorflow as tf
 import pandas as pd
+from abc import ABCMeta, abstractmethod
 
 
 def find_files(directory, pattern='*.pickle'):
@@ -32,6 +33,11 @@ def load_generic_prices(directory, data_set="train"):
 class PriceReader(object):
     '''Generic background price reader that preprocesses price files
     and enqueues them into a TensorFlow queue.'''
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def get_audio_iterator(self, train):
+        yield None, ''
 
     def __init__(self,
                  price_dir,
