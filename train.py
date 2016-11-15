@@ -265,6 +265,7 @@ def main():
     try:
         last_saved_step = saved_global_step
         for step in range(saved_global_step + 1, args.num_steps):
+            print("Step: {}".format(step))
             start_time = time.time()
             if args.store_metadata and step % 50 == 0:
                 # Slow run that stores extra information for debugging.
