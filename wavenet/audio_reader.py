@@ -125,7 +125,8 @@ class AudioReader(object):
                     self.reset_locks[queue_index][0].set() # unlock and allow reset_queue to start draining
                     self.reset_locks[queue_index][1].wait() # wait for draining to complete before continue this thread
                     self.reset_locks[queue_index] = [None, None] # reset locks
-                    break           
+                    break
+            stop = True
 
     def start_threads(self, sess, n_threads=1):
         for i in range(n_threads):
