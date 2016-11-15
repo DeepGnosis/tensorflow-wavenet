@@ -103,7 +103,7 @@ class AudioReader(object):
 
     def thread_main(self, sess, train):
         queue_index = 0 if train else 1
-        stop = False
+        stop = True
         # Go through the dataset multiple times
         while not stop:
             iterator = self.get_audio_iterator(train)
