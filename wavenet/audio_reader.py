@@ -94,6 +94,7 @@ class AudioReader(object):
         self.train_flag = tf.placeholder(tf.bool) if self.validation else None
 
     def dequeue(self, num_elements):
+        print("Dequeue")
         if self.validation:
             q = tf.QueueBase.from_list(tf.cond(self.train_flag, 
                 lambda: tf.constant(0), lambda: tf.constant(1)), 
