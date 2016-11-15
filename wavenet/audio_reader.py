@@ -28,11 +28,10 @@ def load_generic_audio(files, sample_rate):
         yield audio, filename
 
 
-def load_generic_prices(directory, data_set="train"):
+def load_generic_prices(files):
     '''Generator that yields prices timeseries from the directory.
     Currently works with 1-dim prices only.
     '''
-    files = find_files(directory, pattern="*"+data_set+".pickle")
     for filename in files:
         print(filename)
         prices = pd.read_pickle(filename)
