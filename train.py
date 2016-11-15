@@ -18,7 +18,7 @@ import tensorflow as tf
 from tensorflow.python.client import timeline
 
 from wavenet import WaveNetModel, optimizer_factory
-# from wavenet.price_reader import PriceReader
+from wavenet.audio_reader import DirectoryPriceReader
 
 BATCH_SIZE = 1
 DATA_DIRECTORY = './VCTK-Corpus'
