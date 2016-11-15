@@ -214,8 +214,9 @@ class DirectoryPriceReader(AudioReader):
                  sample_size=None,
                  validation=True,
                  val_sample_size=None,
-                 queue_size=256):
-        super(DirectoryPriceReader, self).__init__(validation, queue_size)
+                 queue_size=256,
+                 coord=None):
+        super(DirectoryPriceReader, self).__init__(validation, queue_size, coord)
         self.audio_dir = audio_dir
         self.sample_size = sample_size
         self.val_sample_size = val_sample_size
