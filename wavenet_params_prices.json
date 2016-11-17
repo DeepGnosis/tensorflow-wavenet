@@ -8,7 +8,7 @@
                   1, 2],
     "residual_channels": 64,
     "dilation_channels": 64,
-    "quantization_channels": 32,
+    "quantization_channels": 256,
     "skip_channels": 64,
     "use_biases": true,
     "scalar_input": false,
