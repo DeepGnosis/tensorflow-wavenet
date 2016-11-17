@@ -233,6 +233,7 @@ class DirectoryPriceReader(AudioReader):
             if sample_size:
                 # Cut samples into fixed size pieces
                 buffer_ = np.append(buffer_, audio)
+                print('train', train, 'sample_size', sample_size, 'audio size', audio.shape, 'buffer size', buffer_.shape)
                 while len(buffer_) > sample_size:
                     piece = np.reshape(buffer_[:sample_size], [-1, 1])
                     yield piece, filename
